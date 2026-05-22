@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/
+models/
+release/
+.DS_Store
+*.log
+*.zip
+*.dmg
+*.asar

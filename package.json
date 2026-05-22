@@ -1,0 +1,53 @@
+{
+  "name": "pitchdeck-local",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "node server/index.js",
+    "build": "vite build",
+    "check": "node --check server/index.js && node --check electron/main.js && vite build",
+    "desktop": "npm run build && electron .",
+    "package:mac": "npm run build && electron-builder --mac dir --arm64"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
+    "vite": "^7.2.4",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "express": "^5.2.1",
+    "lucide-react": "^0.561.0",
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.abandonedmuse.pitchdeck",
+    "productName": "PITCHDECK",
+    "directories": {
+      "output": "release"
+    },
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "server/**/*",
+      "electron/**/*",
+      "package.json",
+      "node_modules/**/*",
+      "!data/**/*",
+      "!models/**/*",
+      "!release/**/*",
+      "!node_modules/.cache/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.video",
+      "identity": null,
+      "target": [
+        "dir"
+      ]
+    }
+  }
+}
