@@ -1,6 +1,6 @@
 {
   "name": "pitchdeck-local",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local-first macOS movie pitch deck and storyboard production app.",
   "author": "Hax0rgurl",
   "private": true,
@@ -15,8 +15,6 @@
     "package:release": "./script/package_release.sh"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^5.1.1",
-    "vite": "^7.2.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "express": "^5.2.1",
@@ -24,8 +22,10 @@
     "jszip": "^3.10.1"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^5.1.1",
     "electron": "^39.2.7",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "vite": "^7.2.4"
   },
   "build": {
     "appId": "com.abandonedmuse.pitchdeck",

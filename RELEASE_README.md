@@ -1,6 +1,6 @@
 # PITCHDECK for macOS
 
-This package contains the Apple Silicon build of PITCHDECK 0.1.0.
+This package contains the Apple Silicon build of PITCHDECK 0.1.1.
 
 ## Install
 
