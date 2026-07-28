@@ -1,6 +1,8 @@
 {
   "name": "pitchdeck-local",
   "version": "0.1.0",
+  "description": "Local-first macOS movie pitch deck and storyboard production app.",
+  "author": "Hax0rgurl",
   "private": true,
   "type": "module",
   "main": "electron/main.js",
@@ -9,7 +11,8 @@
     "build": "vite build",
     "check": "node --check server/index.js && node --check electron/main.js && vite build",
     "desktop": "npm run build && electron .",
-    "package:mac": "npm run build && electron-builder --mac dir --arm64"
+    "package:mac": "npm run build && electron-builder --mac dir --arm64",
+    "package:release": "./script/package_release.sh"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
@@ -44,6 +47,7 @@
     ],
     "mac": {
       "category": "public.app-category.video",
+      "icon": "resources/PITCHDECK.icns",
       "identity": null,
       "target": [
         "dir"
