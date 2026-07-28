@@ -1,6 +1,6 @@
 # PITCHDECK for macOS
 
-This package contains the Apple Silicon build of PITCHDECK 0.1.1.
+This package contains the Apple Silicon build of PITCHDECK 0.2.0.
 
 ## Install
 
@@ -21,6 +21,7 @@ not disable Gatekeeper globally.
 - The custom PITCHDECK app icon
 - Project saving and ZIP export
 - Story, character, screenplay, and 12-shots-per-minute storyboard workflows
+- The restored abandonedmuse vaporwave interface with readable neon workflow states
 
 Large AI model weights are intentionally not bundled.
 

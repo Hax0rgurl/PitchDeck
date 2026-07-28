@@ -5,6 +5,7 @@ import {
   Download,
   FileText,
   Film,
+  HelpCircle,
   Image as ImageIcon,
   Loader2,
   Play,
@@ -30,6 +31,77 @@ const statusLabels = {
   error: 'Error',
   done: 'Done'
 };
+
+const introSteps = [
+  {
+    number: '01',
+    title: 'Craft Your Idea',
+    copy: 'Define the movie, its central problem, setting, visual language, and intended length.'
+  },
+  {
+    number: '02',
+    title: 'Build the World & Cast',
+    copy: 'Create locked character records and reference images so every scene belongs to the same world.'
+  },
+  {
+    number: '03',
+    title: 'Write the Screenplay',
+    copy: 'Generate and edit a complete screenplay built from your premise and continuity records.'
+  },
+  {
+    number: '04',
+    title: 'Direct the Storyboard',
+    copy: 'Break each minute into twelve deliberate five-second shots, then make stills or queue motion.'
+  },
+  {
+    number: '05',
+    title: 'Export Your Pitch Deck',
+    copy: 'Save the working project or package the script, prompts, references, and storyboard into one ZIP.'
+  }
+];
+
+function IntroSplash({ onStart }) {
+  return (
+    <main className="intro-screen splash-screen">
+      <section className="intro-content" aria-labelledby="intro-title">
+        <p className="intro-eyebrow">ABANDONEDMUSE / LOCAL STORY SYSTEM</p>
+        <h1 className="intro-title" id="intro-title">PITCHDECK</h1>
+        <p className="intro-edition">STORY MAKER</p>
+        <p className="intro-subtitle">Bring your cinematic vision to life. From idea to pitch deck, privately.</p>
+        <button className="intro-primary" onClick={onStart}>
+          Start Generating
+        </button>
+        <p className="intro-footnote">LOCAL / ON-DEVICE / YOUR PROJECT STAYS YOURS</p>
+      </section>
+    </main>
+  );
+}
+
+function HowItWorks({ onEnter, onBack, firstRun }) {
+  return (
+    <main className="intro-screen guide-screen">
+      <section className="guide-shell" aria-labelledby="guide-title">
+        <p className="intro-eyebrow">PITCHDECK STORY MAKER</p>
+        <h1 className="guide-title" id="guide-title">How It Works</h1>
+        <div className="intro-steps">
+          {introSteps.map(step => (
+            <article className="intro-step" key={step.number}>
+              <span>{step.number}</span>
+              <div>
+                <h2>{step.title}</h2>
+                <p>{step.copy}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+        <div className="intro-actions">
+          {!firstRun ? <button className="intro-secondary" onClick={onBack}>Back to Story Maker</button> : null}
+          <button className="intro-primary" onClick={onEnter}>Enter the Story Maker</button>
+        </div>
+      </section>
+    </main>
+  );
+}
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -77,9 +149,10 @@ function SystemStatus({ status, refresh }) {
   const phosphene = status?.phosphene;
   const imageBackend = status?.imageBackend;
   return (
-    <section className="panel status-grid">
+    <section className="status-grid" aria-label="Local production systems">
       <div className={`status-card ${ollama?.ok ? 'online' : 'offline'}`}>
         <div>
+          <span className="status-label">Writer</span>
           <strong>Ollama</strong>
           <span>{ollama?.ok ? `${ollama.models.length} model(s)` : ollama?.error || 'not reachable'}</span>
         </div>
@@ -87,6 +160,7 @@ function SystemStatus({ status, refresh }) {
       </div>
       <div className={`status-card ${phosphene?.ok ? 'online' : 'offline'}`}>
         <div>
+          <span className="status-label">Motion</span>
           <strong>Phosphene</strong>
           <span>{phosphene?.ok ? `${phosphene.queueLength} queued · ${phosphene.historyCount} done` : phosphene?.error || 'not reachable'}</span>
         </div>
@@ -94,6 +168,7 @@ function SystemStatus({ status, refresh }) {
       </div>
       <div className={`status-card ${imageBackend?.ok ? 'online' : 'offline'}`}>
         <div>
+          <span className="status-label">Stills</span>
           <strong>Image Backend</strong>
           <span>{imageBackend?.reason || 'not configured'}{imageBackend?.modelSizeGb ? ` · ${imageBackend.modelSizeGb} GB` : ''}</span>
         </div>
@@ -108,7 +183,7 @@ function SystemStatus({ status, refresh }) {
 
 function ModelManagerPanel({ models, onRefresh, onInstall, busy }) {
   return (
-    <section className="panel model-panel">
+    <section className="panel model-panel system-panel">
       <div className="panel-title">
         <Download size={18} />
         <h2>Local Models</h2>
@@ -146,7 +221,7 @@ function ModelManagerPanel({ models, onRefresh, onInstall, busy }) {
 
 function ProgressBar({ progress }) {
   return (
-    <section className="progress-panel">
+    <section className="progress-panel" aria-live="polite" aria-atomic="true">
       <div>
         <strong>{statusLabels[progress.kind] || 'Ready'}</strong>
         <span>{progress.message}</span>
@@ -161,10 +236,17 @@ function ProgressBar({ progress }) {
 function ProjectForm({ project, setProject }) {
   const update = patch => setProject(current => normalizeProject({ ...current, ...patch }));
   return (
-    <section className="panel form-panel">
+    <section
+      className={`panel form-panel workflow-panel ${project.characterProfiles.length ? 'complete' : 'active'}`}
+      id="movie-setup"
+    >
       <div className="panel-title">
+        <span className="panel-index">01</span>
         <Clapperboard size={18} />
-        <h2>Movie Setup</h2>
+        <div>
+          <h2>Movie Idea</h2>
+          <p>Lock the premise, world, and visual language.</p>
+        </div>
       </div>
       <div className="form-grid">
         <Field label="Title" value={project.movieTitle} onChange={movieTitle => update({ movieTitle })} />
@@ -227,10 +309,17 @@ function CharactersPanel({ project, setProject, onGenerate, busy }) {
   };
 
   return (
-    <section className="panel">
+    <section
+      className={`panel workflow-panel ${project.characterProfiles.length ? 'complete' : project.movieTitle || project.plot ? 'active' : 'queued'}`}
+      id="reference-library"
+    >
       <div className="panel-title">
+        <span className="panel-index">02</span>
         <UserRound size={18} />
-        <h2>Reference Library</h2>
+        <div>
+          <h2>World &amp; Cast</h2>
+          <p>Build identity records before the camera rolls.</p>
+        </div>
         <button onClick={onGenerate} disabled={busy}>
           {busy ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
           Generate Characters
@@ -255,10 +344,17 @@ function CharactersPanel({ project, setProject, onGenerate, busy }) {
 
 function ScreenplayPanel({ project, setProject, onGenerate, busy }) {
   return (
-    <section className="panel screenplay-panel">
+    <section
+      className={`panel screenplay-panel workflow-panel ${project.finalScript ? 'complete' : project.characterProfiles.length ? 'active' : 'queued'}`}
+      id="screenplay"
+    >
       <div className="panel-title">
+        <span className="panel-index">03</span>
         <FileText size={18} />
-        <h2>Screenplay</h2>
+        <div>
+          <h2>Screenplay</h2>
+          <p>Write the story with the cast and continuity locked.</p>
+        </div>
         <button onClick={onGenerate} disabled={busy || project.characterProfiles.length === 0}>
           {busy ? <Loader2 className="spin" size={16} /> : <Wand2 size={16} />}
           Generate Screenplay
@@ -330,10 +426,17 @@ function ShotCard({ project, minute, shot, setProject, onGenerateImage, onQueueV
 
 function StoryboardPanel({ project, setProject, onGenerateMinute, onBuildPrompts, onGenerateImage, onQueueVideo, busy }) {
   return (
-    <section className="panel storyboard-panel">
+    <section
+      className={`panel storyboard-panel workflow-panel ${project.minutes.length >= project.minutesToExtract ? 'complete' : project.finalScript ? 'active' : 'queued'}`}
+      id="storyboard"
+    >
       <div className="panel-title">
+        <span className="panel-index">04</span>
         <Film size={18} />
-        <h2>Storyboard</h2>
+        <div>
+          <h2>Storyboard</h2>
+          <p>Turn each minute into twelve deliberate five-second shots.</p>
+        </div>
         <div className="button-row">
           <button onClick={onGenerateMinute} disabled={busy || !project.finalScript}>
             {busy ? <Loader2 className="spin" size={16} /> : <Sparkles size={16} />}
@@ -374,10 +477,13 @@ function StoryboardPanel({ project, setProject, onGenerateMinute, onBuildPrompts
 
 function AgentFlowPanel({ flow }) {
   return (
-    <section className="panel agent-panel">
+    <section className="panel agent-panel system-panel">
       <div className="panel-title">
         <Sparkles size={18} />
-        <h2>PitchDeck Flow</h2>
+        <div>
+          <h2>Creative Circuit</h2>
+          <p>Your local production agents, in order.</p>
+        </div>
       </div>
       <div className="flow-list">
         {(flow?.nodes || []).map(node => (
@@ -419,10 +525,16 @@ function ExportPanel({ project, onSave }) {
   };
 
   return (
-    <section className="panel export-panel">
+    <section
+      className={`panel export-panel finish-panel ${project.minutes.length >= project.minutesToExtract ? 'active' : 'queued'}`}
+      id="export"
+    >
       <div className="panel-title">
         <Download size={18} />
-        <h2>Export</h2>
+        <div>
+          <h2>Make It Real</h2>
+          <p>Save the working file or package the full deck.</p>
+        </div>
       </div>
       <div className="button-row">
         <button onClick={onSave}>
@@ -471,6 +583,8 @@ function shotReferenceDataUrls(project, minuteNumber, shot) {
 
 function App() {
   const [project, setProject] = useLocalProject();
+  const [hasSeenIntro, setHasSeenIntro] = useState(() => localStorage.getItem('pitchdeck-local-intro-seen') === '1');
+  const [view, setView] = useState(() => hasSeenIntro ? 'app' : 'splash');
   const [status, setStatus] = useState(null);
   const [models, setModels] = useState([]);
   const [flow, setFlow] = useState(null);
@@ -617,15 +731,73 @@ function App() {
     });
   });
 
+  const enterApp = () => {
+    localStorage.setItem('pitchdeck-local-intro-seen', '1');
+    setHasSeenIntro(true);
+    setView('app');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  if (view === 'splash') {
+    return <IntroSplash onStart={() => setView('guide')} />;
+  }
+
+  if (view === 'guide') {
+    return (
+      <HowItWorks
+        firstRun={!hasSeenIntro}
+        onBack={() => setView('app')}
+        onEnter={enterApp}
+      />
+    );
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div>
-          <h1>PITCHDECK Local</h1>
-          <p>Storyboard first. References locked. Local agents and Phosphene bridge wired.</p>
+        <div className="brand-block">
+          <p className="eyebrow">ABANDONEDMUSE / LOCAL STORY SYSTEM</p>
+          <h1>PITCHDECK <span>STORY MAKER</span></h1>
+          <p className="tagline">From first spark to a shot-by-shot world, built privately on your Mac.</p>
         </div>
-        <div className="model-pill">{model ? `LLM: ${model}` : 'No local LLM detected'}</div>
+        <div className="topbar-tools">
+          <button className="help-button" onClick={() => setView('guide')}>
+            <HelpCircle size={15} />
+            How It Works
+          </button>
+          <div className={`model-pill ${model ? 'ready' : ''}`}>
+            <span>{model ? 'LOCAL MIND ONLINE' : 'LOCAL MIND OFFLINE'}</span>
+            {model || 'No local LLM detected'}
+          </div>
+        </div>
       </header>
+
+      <nav className="workflow-strip" aria-label="Story workflow">
+        <a className={project.movieTitle || project.plot ? 'active' : ''} href="#movie-setup">
+          <span>01</span>
+          <strong>Idea</strong>
+        </a>
+        <i aria-hidden="true" />
+        <a className={project.characterProfiles.length ? 'active' : ''} href="#reference-library">
+          <span>02</span>
+          <strong>World &amp; Cast</strong>
+        </a>
+        <i aria-hidden="true" />
+        <a className={project.finalScript ? 'active' : ''} href="#screenplay">
+          <span>03</span>
+          <strong>Screenplay</strong>
+        </a>
+        <i aria-hidden="true" />
+        <a className={project.minutes.length ? 'active' : ''} href="#storyboard">
+          <span>04</span>
+          <strong>Storyboard</strong>
+        </a>
+        <i aria-hidden="true" />
+        <a className={project.minutes.length >= project.minutesToExtract ? 'active' : ''} href="#export">
+          <span>05</span>
+          <strong>Export</strong>
+        </a>
+      </nav>
 
       <SystemStatus status={status} refresh={refreshStatus} />
       <ProgressBar progress={progress} />
@@ -646,6 +818,10 @@ function App() {
           />
         </div>
         <aside className="side-column">
+          <div className="rack-label">
+            <span>LOCAL RACK</span>
+            <small>PRIVATE / ON-DEVICE</small>
+          </div>
           <AgentFlowPanel flow={flow} />
           <ModelManagerPanel
             models={models}

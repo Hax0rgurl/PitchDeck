@@ -31,23 +31,79 @@ APP_NAME="PITCHDECK"
 VERSION="$(node -p "require('./package.json').version")"
 ARCH="arm64"
 PITCHDECK_CACHE_ROOT="${PITCHDECK_CACHE_ROOT:-/private/tmp/pitchdeck-build-cache-${UID:-local}}"
-APP_PATH="$ROOT/release/mac-$ARCH/$APP_NAME.app"
 ZIP_PATH="$ROOT/release/$APP_NAME-$VERSION-mac-$ARCH.zip"
+CHECKSUM_PATH="$ZIP_PATH.sha256"
+CLEAN_BUILD_ROOT="$(mktemp -d /private/tmp/pitchdeck-clean-build.XXXXXX)"
 STAGING_ROOT="$(mktemp -d /private/tmp/pitchdeck-release.XXXXXX)"
 PACKAGE_DIR="$STAGING_ROOT/$APP_NAME-$VERSION-mac-$ARCH"
 STAGED_ZIP="$STAGING_ROOT/$APP_NAME-$VERSION-mac-$ARCH.zip"
 VALIDATION_ROOT="$STAGING_ROOT/fresh-extraction"
+APP_PATH="$CLEAN_BUILD_ROOT/release/mac-$ARCH/$APP_NAME.app"
+ASAR_PATH="$APP_PATH/Contents/Resources/app.asar"
+ASAR_TOOL="$CLEAN_BUILD_ROOT/node_modules/.bin/asar"
+FINDER_DUPLICATE_PATTERN='(^|/)[^/]+ 2(\.[^/]*)?$'
 
 export ELECTRON_CACHE="${ELECTRON_CACHE:-$PITCHDECK_CACHE_ROOT/electron}"
 export ELECTRON_BUILDER_CACHE="${ELECTRON_BUILDER_CACHE:-$PITCHDECK_CACHE_ROOT/electron-builder}"
 mkdir -p "$ELECTRON_CACHE" "$ELECTRON_BUILDER_CACHE"
 
-npm run package:mac
+for relative_path in \
+  package.json \
+  package-lock.json \
+  vite.config.js \
+  index.html \
+  src \
+  server \
+  electron \
+  resources \
+  script \
+  test
+do
+  ditto --norsrc --noextattr --noacl \
+    "$ROOT/$relative_path" \
+    "$CLEAN_BUILD_ROOT/$relative_path"
+done
+
+(
+  cd "$CLEAN_BUILD_ROOT"
+  npm ci --no-audit --no-fund
+  npm run check
+  npm run package:mac
+)
 
 if [[ ! -d "$APP_PATH" ]]; then
   echo "Expected app was not created: $APP_PATH" >&2
   exit 1
 fi
+
+if [[ ! -x "$ASAR_TOOL" || ! -f "$ASAR_PATH" ]]; then
+  echo "Clean build did not produce the expected app.asar tooling or archive." >&2
+  exit 1
+fi
+
+validate_asar() {
+  local app_path="$1"
+  local archive_path="$app_path/Contents/Resources/app.asar"
+  local archive_listing="$STAGING_ROOT/app-asar-list.txt"
+  local duplicate_report="$STAGING_ROOT/app-asar-finder-duplicates.txt"
+
+  if [[ ! -f "$archive_path" ]]; then
+    echo "Expected app.asar was not found: $archive_path" >&2
+    exit 1
+  fi
+
+  "$ASAR_TOOL" list "$archive_path" > "$archive_listing"
+
+  if LC_ALL=C grep -E "$FINDER_DUPLICATE_PATTERN" "$archive_listing" \
+    > "$duplicate_report"
+  then
+    echo "Release blocked: app.asar contains Finder-style duplicate filenames:" >&2
+    sed -n '1,80p' "$duplicate_report" >&2
+    exit 1
+  fi
+}
+
+validate_asar "$APP_PATH"
 
 mkdir -p "$PACKAGE_DIR"
 ditto --norsrc --noextattr --noacl "$APP_PATH" "$PACKAGE_DIR/$APP_NAME.app"
@@ -69,6 +125,7 @@ fi
 
 mkdir -p "$VALIDATION_ROOT"
 unzip -q "$STAGED_ZIP" -d "$VALIDATION_ROOT"
+validate_asar "$VALIDATION_ROOT/$APP_NAME-$VERSION-mac-$ARCH/$APP_NAME.app"
 codesign --verify --deep --strict --verbose=2 \
   "$VALIDATION_ROOT/$APP_NAME-$VERSION-mac-$ARCH/$APP_NAME.app"
 
@@ -77,4 +134,12 @@ if [[ -e "$ZIP_PATH" ]]; then
 fi
 cp "$STAGED_ZIP" "$ZIP_PATH"
 
+ZIP_BASENAME="$(basename "$ZIP_PATH")"
+(
+  cd "$(dirname "$ZIP_PATH")"
+  shasum -a 256 "$ZIP_BASENAME" > "$(basename "$CHECKSUM_PATH")"
+  shasum -a 256 -c "$(basename "$CHECKSUM_PATH")"
+)
+
 echo "$ZIP_PATH"
+echo "$CHECKSUM_PATH"
