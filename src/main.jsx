@@ -498,7 +498,36 @@ function AgentFlowPanel({ flow }) {
   );
 }
 
-function ExportPanel({ project, onSave }) {
+function ExportPanel({ project, onSave, onImport }) {
+  // PitchDeck could only ever load from its own localStorage, so a project built
+  // elsewhere (Studio) had no way in. Accept the project.json it already exports,
+  // or the whole ZIP.
+  const importProject = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,.zip,application/json,application/zip';
+    input.onchange = async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      try {
+        let raw;
+        if (/\.zip$/i.test(file.name)) {
+          const zip = await JSZip.loadAsync(file);
+          const entry = zip.file('project.json') || zip.file(/project\.json$/)[0];
+          if (!entry) throw new Error('No project.json inside that ZIP.');
+          raw = await entry.async('string');
+        } else {
+          raw = await file.text();
+        }
+        const parsed = JSON.parse(raw);
+        onImport(normalizeProject(parsed.project || parsed));
+      } catch (error) {
+        window.alert('Could not open that project: ' + error.message);
+      }
+    };
+    input.click();
+  };
+
   const exportZip = async () => {
     const zip = new JSZip();
     zip.file('project.json', JSON.stringify(project, null, 2));
@@ -537,6 +566,9 @@ function ExportPanel({ project, onSave }) {
         </div>
       </div>
       <div className="button-row">
+        <button onClick={importProject} title="Open a project.json or ZIP — including one exported from Studio">
+          Open project…
+        </button>
         <button onClick={onSave}>
           <Save size={16} />
           Save Project
@@ -581,6 +613,29 @@ function shotReferenceDataUrls(project, minuteNumber, shot) {
   return [...new Set([...characterRefs, ...locationRefs, ...previousShotRefs.reverse()])].slice(0, 4);
 }
 
+/* Not every installed model can hold a conversation, and the biggest usable one
+   is almost always the right default. Rank instead of pinning a name. */
+const NOT_A_CHAT_MODEL = /embed|rerank|clip|whisper|bge-|nomic-|minilm|stable-?diffusion|sdxl|flux/i;
+
+const modelSize = id => {
+  // "qwen3.6:35b-a3b-q4_K_M" -> 35 ; prefer total parameters, not the active count
+  const matches = String(id).toLowerCase().match(/(\d+(?:\.\d+)?)\s*b\b/g) || [];
+  const sizes = matches.map(x => parseFloat(x));
+  // A ":latest" tag carries no size. Treat it as a mid-sized model rather than
+  // zero, so it does not lose to a 1b that happens to say so in its name.
+  return sizes.length ? Math.max(...sizes) : 7;
+};
+
+export const rankLocalModels = (list = []) =>
+  list
+    .filter(id => id && !NOT_A_CHAT_MODEL.test(id))
+    .slice()
+    .sort((a, b) => {
+      const size = modelSize(b) - modelSize(a);
+      if (size) return size;
+      return String(b).localeCompare(String(a), undefined, { numeric: true });
+    });
+
 function App() {
   const [project, setProject] = useLocalProject();
   const [hasSeenIntro, setHasSeenIntro] = useState(() => localStorage.getItem('pitchdeck-local-intro-seen') === '1');
@@ -591,9 +646,18 @@ function App() {
   const [busyTask, setBusyTask] = useState('');
   const [progress, setProgress] = useState({ kind: 'idle', message: 'Ready to build the local PitchDeck pipeline.', value: 0 });
 
-  const model = useMemo(() => status?.ollama?.models?.includes('qwen3.5:latest')
-    ? 'qwen3.5:latest'
-    : status?.ollama?.models?.[0] || '', [status]);
+  // Pick whatever is actually installed, best first — never a hard-coded tag.
+  // A pinned name meant a better model sitting on disk was ignored.
+  const [modelChoice, setModelChoice] = useState(() => localStorage.getItem('pitchdeck-llm') || '');
+  const availableModels = useMemo(() => rankLocalModels(status?.ollama?.models || []), [status]);
+  const model = useMemo(() => {
+    if (modelChoice && availableModels.includes(modelChoice)) return modelChoice;
+    return availableModels[0] || '';
+  }, [availableModels, modelChoice]);
+  const chooseModel = value => {
+    setModelChoice(value);
+    try { localStorage.setItem('pitchdeck-llm', value); } catch (error) { /* private mode */ }
+  };
 
   const refreshStatus = async () => {
     const data = await api('/api/status');
@@ -767,7 +831,18 @@ function App() {
           </button>
           <div className={`model-pill ${model ? 'ready' : ''}`}>
             <span>{model ? 'LOCAL MIND ONLINE' : 'LOCAL MIND OFFLINE'}</span>
-            {model || 'No local LLM detected'}
+            {availableModels.length ? (
+              <select
+                className="model-pick"
+                value={model}
+                onChange={event => chooseModel(event.target.value)}
+                title="Every chat model Ollama has installed, biggest first"
+              >
+                {availableModels.map(id => (
+                  <option key={id} value={id}>{id}</option>
+                ))}
+              </select>
+            ) : 'No local LLM detected'}
           </div>
         </div>
       </header>
@@ -829,7 +904,7 @@ function App() {
             onInstall={installModel}
             busy={busyTask === 'model'}
           />
-          <ExportPanel project={project} onSave={saveProject} />
+          <ExportPanel project={project} onSave={saveProject} onImport={next => setProject(next)} />
         </aside>
       </div>
     </main>
