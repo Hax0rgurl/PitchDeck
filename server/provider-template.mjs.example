@@ -1,0 +1,77 @@
+/**
+ * Agentic Movie Studio / PitchDeck media-provider template.
+ *
+ * Copy this file to PitchDeck's application-data video-providers directory,
+ * rename it to <provider-id>.mjs, and implement only the capabilities the
+ * provider actually has. Never put an API key in this file or its descriptor.
+ */
+export async function createMediaProvider(context) {
+  const providerId = 'replace-me';
+  return {
+    id: providerId,
+
+    async describe() {
+      const config = await context.getProviderConfig(providerId);
+      // Discover current models from the provider when possible. An empty list
+      // plus allowsCustomModel:true lets the filmmaker enter any model ID.
+      return {
+        name: 'Replace Me',
+        kind: 'api', // local | api | mcp
+        mediaKinds: ['image', 'video'],
+        configured: Boolean(config['api-key'] && config['base-url']),
+        requiresBillingApproval: true,
+        allowsCustomModel: true,
+        models: [],
+        capabilities: {
+          textToImage: true,
+          textToVideo: true,
+          imageToVideo: true,
+          localDurableMedia: true,
+          asynchronous: true
+        },
+        credentials: {
+          configured: Boolean(config['api-key']),
+          fields: [{ id: 'api-key', label: 'API key', secret: true, required: true,
+            help: 'Stored in PitchDeck application data with file mode 0600; never returned to Studio.' }]
+        },
+        configuration: {
+          fields: [{ id: 'base-url', label: 'API endpoint', secret: false, required: true, type: 'url',
+            placeholder: 'https://api.provider.example/v1' }]
+        }
+      };
+    },
+
+    async generateImage({ body }) {
+      const config = await context.getProviderConfig(providerId);
+      // Must return a durable result, not only a temporary provider URL.
+      // return { ok: true, imageDataUrl, outputPath, providerId: this.id, model: body.model };
+      throw new Error('generateImage is not implemented');
+    },
+
+    async queueBatch({ body }) {
+      const config = await context.getProviderConfig(providerId);
+      // Persist (runId, studioShotId, attempt) before any paid submission.
+      // Return normalized jobs/errors and never auto-resubmit an unproven attempt.
+      // return { ok: true, jobs: [{ studioShotId, attempt, id, reused, recovered }], errors: [] };
+      throw new Error('queueBatch is not implemented');
+    },
+
+    async getJobs({ body }) {
+      // Map provider states to queued | running | done | failed. Download each
+      // successful remote result immediately under context.generatedDir.
+      // return { ok: true, jobs: [{ id, status, outputPath, error }], missingIds: [] };
+      throw new Error('getJobs is not implemented');
+    },
+
+    async getMedia({ id }) {
+      // The neutral gateway accepts a locally materialized file only.
+      // return { filePath: '/absolute/path/to/durable.mp4', mimeType: 'video/mp4' };
+      throw new Error(`getMedia is not implemented for ${id}`);
+    },
+
+    async assemble({ body }) {
+      // Optional. Return an idempotent cut receipt for body.runId and ordered IDs.
+      throw new Error('assemble is not implemented');
+    }
+  };
+}
